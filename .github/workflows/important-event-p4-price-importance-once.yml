@@ -1,4 +1,4 @@
-name: Important Event P4 Price Importance One-Off
+name: Important Event P4 Price Importance V2 One-Off
 
 on:
   push:
@@ -36,11 +36,11 @@ jobs:
           repository: kazooooo-ma/crypto_data_fetcher
           run-id: 31688337183
           github-token: ${{ github.token }}
-      - name: Evaluate price liquidity and importance
-        run: python scripts/important_event_p4_price_importance_once.py
+      - name: Evaluate price liquidity and importance v2
+        run: python scripts/run_important_event_p4_v2.py
       - uses: actions/upload-artifact@v4
         with:
-          name: important-event-p4-price-importance
+          name: important-event-p4-price-importance-v2
           path: out/p4/
           if-no-files-found: error
           retention-days: 1
