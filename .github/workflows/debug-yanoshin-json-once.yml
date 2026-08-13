@@ -1,0 +1,44 @@
+name: Debug Yanoshin JSON One-Off
+
+on:
+  push:
+    paths:
+      - '.github/workflows/debug-yanoshin-json-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests
+      - name: Dump sample JSON structure
+        run: |
+          python - <<'PY'
+          import json, requests
+          u='https://webapi.yanoshin.jp/webapi/tdnet/list/20260707.json?limit=1000'
+          r=requests.get(u,timeout=60)
+          r.raise_for_status()
+          obj=r.json()
+          print(type(obj), getattr(obj,'keys',lambda:[])())
+          items=obj.get('items') if isinstance(obj,dict) else None
+          print('items type',type(items),'len',len(items) if hasattr(items,'__len__') else None)
+          sample=None
+          if isinstance(items,list) and items: sample=items[0]
+          elif isinstance(items,dict):
+              print('items keys',items.keys())
+              for v in items.values():
+                  if isinstance(v,list) and v:
+                      sample=v[0];break
+          print('sample',json.dumps(sample,ensure_ascii=False)[:2000])
+          open('sample.json','w',encoding='utf-8').write(json.dumps(obj,ensure_ascii=False,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yanoshin-json-debug
+          path: sample.json
+          retention-days: 1
