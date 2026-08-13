@@ -7,17 +7,16 @@ import json
 import re
 from collections import Counter, defaultdict
 from pathlib import Path
-from urllib.parse import unquote, urljoin
+from urllib.parse import unquote
 
 import requests
-from bs4 import BeautifulSoup
 
 START = dt.date(2025, 1, 1)
 END = dt.date(2025, 12, 31)
 OUT = Path("out_important_event_inventory_2025")
 OUT.mkdir(parents=True, exist_ok=True)
 SESSION = requests.Session()
-SESSION.headers.update({"User-Agent": "Mozilla/5.0 important-event-migration/1.0"})
+SESSION.headers.update({"User-Agent": "Mozilla/5.0 important-event-migration/1.1"})
 
 ROUTINE_COMPENSATION = re.compile(
     r"ストック.?オプション|株式報酬|譲渡制限付株式|役員報酬|従業員持株会|業績連動型株式報酬"
@@ -97,58 +96,50 @@ def direction(event_type: str, subtype: str) -> str:
     return "CORPORATE_ACTION"
 
 
-def decode_source_url(href: str) -> str:
-    absolute = urljoin("https://contents.webapi.yanoshin.jp", href)
-    decoded = unquote(absolute)
+def decode_document_url(url: str) -> str:
+    decoded = unquote(str(url or ""))
     marker = "webapi.yanoshin.jp/rd.php?"
     if marker in decoded:
-        candidate = decoded.split(marker, 1)[1]
-        while candidate.endswith("="):
-            candidate = candidate[:-1]
-        return candidate
-    if "release.tdnet.info" in decoded and decoded.endswith(".pdf"):
-        return decoded
-    return absolute
+        decoded = decoded.split(marker, 1)[1]
+        while decoded.endswith("="):
+            decoded = decoded[:-1]
+    return decoded
+
+
+def normalize_code(value: str) -> str:
+    code = str(value or "").strip()
+    if len(code) == 5 and code.endswith("0"):
+        code = code[:-1]
+    return code
 
 
 def fetch_day(day: dt.date):
     date_raw = day.strftime("%Y%m%d")
-    url = f"https://contents.webapi.yanoshin.jp/contents/tdnet_date/{date_raw}"
+    url = f"https://webapi.yanoshin.jp/webapi/tdnet/list/{date_raw}.json?limit=1000"
     try:
         response = SESSION.get(url, timeout=45)
         if response.status_code == 404:
             return date_raw, [], "NO_PAGE", url
         response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
+        obj = response.json()
         records = []
-        for tr in soup.find_all("tr"):
-            cells = tr.find_all("td")
-            if len(cells) < 3:
-                continue
-            time_text = cells[0].get_text(" ", strip=True)
-            company_text = cells[1].get_text(" ", strip=True)
-            title_text = cells[2].get_text(" ", strip=True)
-            if not re.fullmatch(r"\d{1,2}:\d{2}", time_text):
-                continue
-            match = re.search(r"[（(]([0-9]{4}|[0-9]{3}[A-Z])[）)]", company_text)
-            if not match:
-                continue
-            code = match.group(1)
-            company = re.sub(r"\s*[（(](?:[0-9]{4}|[0-9]{3}[A-Z])[）)]\s*$", "", company_text).strip()
-            title_link = cells[2].find("a", href=True)
-            href = title_link.get("href") if title_link else ""
-            source_url = decode_source_url(href) if href else ""
-            file_match = re.search(r"/(\d+)\.pdf", source_url)
-            file_id = file_match.group(1) if file_match else ""
+        for wrapped in obj.get("items") or []:
+            item = wrapped.get("Tdnet") or wrapped.get("TDnet") or wrapped
+            pubdate = str(item.get("pubdate") or "")
+            disclosure_date = pubdate[:10] if len(pubdate) >= 10 else day.isoformat()
+            disclosure_time = pubdate[11:16] if len(pubdate) >= 16 else ""
+            source_url = decode_document_url(item.get("document_url") or "")
+            file_match = re.search(r"/(\d+)\.(?:pdf|zip)", source_url)
             records.append({
-                "disclosure_date": day.isoformat(),
-                "disclosure_time": time_text,
-                "code": code,
-                "company": company,
-                "title": title_text,
-                "file_id": file_id,
+                "disclosure_date": disclosure_date,
+                "disclosure_time": disclosure_time,
+                "code": normalize_code(item.get("company_code") or ""),
+                "company": item.get("company_name") or "",
+                "title": item.get("title") or "",
+                "file_id": file_match.group(1) if file_match else str(item.get("id") or ""),
                 "source_url": source_url,
-                "source_page": url,
+                "source_api": url,
+                "markets_string": item.get("markets_string") or "",
             })
         return date_raw, records, None, url
     except Exception as exc:  # noqa: BLE001
@@ -166,7 +157,7 @@ def candidate_id(record: dict, event_type: str, subtype: str) -> str:
 
 def main():
     results = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         for result in executor.map(fetch_day, list(iter_dates())):
             results.append(result)
     results.sort()
@@ -174,8 +165,8 @@ def main():
     candidates = []
     audit = []
     monthly = defaultdict(lambda: {
-        "pages_ok": 0,
-        "pages_missing_or_error": 0,
+        "api_days_ok": 0,
+        "api_days_missing_or_error": 0,
         "disclosures": 0,
         "candidates": 0,
         "routine_compensation_excluded": 0,
@@ -186,12 +177,12 @@ def main():
     for date_raw, records, error, url in results:
         month = f"{date_raw[:4]}-{date_raw[4:6]}"
         if error:
-            monthly[month]["pages_missing_or_error"] += 1
+            monthly[month]["api_days_missing_or_error"] += 1
             audit.append({"date": date_raw, "status": error, "url": url})
             continue
-        monthly[month]["pages_ok"] += 1
+        monthly[month]["api_days_ok"] += 1
         monthly[month]["disclosures"] += len(records)
-        audit.append({"date": date_raw, "status": "PAGE_OK", "items": len(records), "url": url})
+        audit.append({"date": date_raw, "status": "API_OK", "items": len(records), "url": url})
         for record in records:
             classified = classify(record["title"])
             if not classified:
@@ -205,7 +196,7 @@ def main():
                 "lifecycle_stage": stage,
                 "direction": direction(event_type, subtype),
                 "materiality_scope": materiality_scope,
-                "manifest_status": "YANOSHIN_ARCHIVE",
+                "manifest_status": "YANOSHIN_JSON_ARCHIVE",
                 "month": month,
             }
             candidates.append(out)
@@ -233,8 +224,8 @@ def main():
         value = monthly[month]
         monthly_rows.append({
             "month": month,
-            "pages_ok": value["pages_ok"],
-            "pages_missing_or_error": value["pages_missing_or_error"],
+            "api_days_ok": value["api_days_ok"],
+            "api_days_missing_or_error": value["api_days_missing_or_error"],
             "disclosures": value["disclosures"],
             "candidates": value["candidates"],
             "routine_compensation_excluded": value["routine_compensation_excluded"],
@@ -251,8 +242,8 @@ def main():
     counts = Counter(r["event_type"] for r in unique)
     summary = {
         "period": [START.isoformat(), END.isoformat()],
-        "pages_ok": sum(1 for r in audit if r.get("status") == "PAGE_OK"),
-        "pages_missing_or_error": sum(1 for r in audit if r.get("status") != "PAGE_OK"),
+        "api_days_ok": sum(1 for r in audit if r.get("status") == "API_OK"),
+        "api_days_missing_or_error": sum(1 for r in audit if r.get("status") != "API_OK"),
         "disclosures": sum(r["disclosures"] for r in monthly_rows),
         "candidates_unique": len(unique),
         "routine_compensation_excluded": sum(
