@@ -19,6 +19,14 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install requests
+      - name: Reconstruct backtest script
+        run: |
+          cat \
+            scripts/backtest_parts/important_event_backtest.part00.b64 \
+            scripts/backtest_parts/important_event_backtest.part01.b64 \
+            scripts/backtest_parts/important_event_backtest.part02_00.b64 \
+            | base64 --decode > scripts/important_event_backtest_v1_once.py
+          python -m py_compile scripts/important_event_backtest_v1_once.py
       - name: Download financing lifecycle artifact
         uses: actions/download-artifact@v4
         with:
