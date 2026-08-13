@@ -1,0 +1,49 @@
+name: Debug Old TDnet PDF Fallback One-Off
+
+on:
+  push:
+    paths:
+      - '.github/workflows/debug-old-tdnet-pdf-fallback-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests beautifulsoup4
+      - name: Probe sources
+        run: |
+          python - <<'PY'
+          import json, requests
+          from bs4 import BeautifulSoup
+          urls = [
+            'https://www.release.tdnet.info/inbs/140120241226544987.pdf',
+            'https://webapi.yanoshin.jp/rd.php?https://www.release.tdnet.info/inbs/140120241226544987.pdf',
+            'https://disclosure.tokyo/files/file/tdnet/20250106/140120241226544987',
+          ]
+          out=[]
+          for u in urls:
+            try:
+              r=requests.get(u,timeout=60,allow_redirects=True,headers={'User-Agent':'Mozilla/5.0'})
+              row={'url':u,'status':r.status_code,'final_url':r.url,'type':r.headers.get('content-type'),'length':len(r.content),'prefix':r.content[:20].hex()}
+              if 'html' in (r.headers.get('content-type') or ''):
+                soup=BeautifulSoup(r.text,'html.parser')
+                row['links']=[a.get('href') for a in soup.find_all(['a','iframe']) if a.get('href') or a.get('src')][:30]
+                row['iframes']=[x.get('src') for x in soup.find_all('iframe')][:20]
+                row['html_prefix']=r.text[:1500]
+              out.append(row)
+            except Exception as e:
+              out.append({'url':u,'error':f'{type(e).__name__}: {e}'})
+          open('probe.json','w',encoding='utf-8').write(json.dumps(out,ensure_ascii=False,indent=2))
+          print(json.dumps(out,ensure_ascii=False,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: old-tdnet-pdf-fallback-probe
+          path: probe.json
+          retention-days: 1
