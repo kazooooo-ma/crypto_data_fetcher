@@ -1,0 +1,48 @@
+name: Cleanup Backfill Temporary Files
+
+on:
+  push:
+    paths:
+      - .github/workflows/cleanup-backfill-temp.yml
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Remove temporary research files
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm -rf --ignore-unmatch \
+            .github/workflows/export-full-backfill-artifact-once.yml \
+            .github/workflows/final-backfill-prices-2-once.yml \
+            .github/workflows/final-backfill-prices-once.yml \
+            .github/workflows/missing-prices-fetch-once.yml \
+            .github/workflows/tdnet-backfill-full-2026-export.yml \
+            .github/workflows/tdnet-backfill-full-2026-once.yml \
+            .github/workflows/tdnet-backfill-once.yml \
+            .github/workflows/topix-fetch-once.yml \
+            .github/workflows/topix-proxy-fetch-once.yml \
+            .github/workflows/cleanup-backfill-temp.yml \
+            scripts/backfill_price_codes.txt \
+            scripts/final_backfill_price_fetch.py \
+            scripts/final_backfill_price_fetch_2.py \
+            scripts/missing_prices_fetch_once.py \
+            scripts/tdnet_backfill_fetch_once.py \
+            scripts/tdnet_backfill_full_2026_once.py \
+            scripts/tdnet_backfill_full_export_trigger.txt \
+            scripts/tdnet_backfill_full_trigger.txt \
+            scripts/topix_fetch_once.py \
+            scripts/topix_proxy_fetch_once.py \
+            tmp-artifacts
+          git commit -m 'Remove temporary TDnet backfill research files'
+          git push origin HEAD:master
