@@ -1,0 +1,24 @@
+name: Export Complete Backfill Artifact One-Off
+on:
+  push:
+    paths:
+      - .github/workflows/export-full-backfill-artifact-once.yml
+permissions:
+  contents: read
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify source archive
+        run: |
+          test -s tmp-artifacts/tdnet-backfill-full-2026-source.zip
+          sha256sum tmp-artifacts/tdnet-backfill-full-2026-source.zip
+          unzip -t tmp-artifacts/tdnet-backfill-full-2026-source.zip >/dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: complete-tdnet-backfill-source-2026
+          path: tmp-artifacts/tdnet-backfill-full-2026-source.zip
+          retention-days: 1
