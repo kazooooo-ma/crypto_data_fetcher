@@ -1,0 +1,51 @@
+name: Missing Prices One-Off
+
+on:
+  push:
+    paths:
+      - .github/workflows/missing-prices-fetch-once.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch missing Japanese stocks and TOPIX
+        run: |
+          python - <<'PY'
+          import concurrent.futures, datetime as dt, json, requests
+          codes=['1723','1887','3849','402A','4333','6363','6653','6744','6846','8056','9765','TOPIX']
+          p1=int(dt.datetime(2025,12,20,tzinfo=dt.timezone.utc).timestamp())
+          p2=int(dt.datetime(2026,8,15,tzinfo=dt.timezone.utc).timestamp())
+          def fetch(code):
+              symbol='998405.T' if code=='TOPIX' else f'{code}.T'
+              url=f'https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?period1={p1}&period2={p2}&interval=1d&events=div%2Csplits&includeAdjustedClose=true'
+              try:
+                  response=requests.get(url,timeout=45,headers={'User-Agent':'Mozilla/5.0'})
+                  response.raise_for_status(); obj=response.json(); results=(obj.get('chart') or {}).get('result')
+                  if not results: return code,{'status':'NO_DATA','symbol':symbol,'url':url}
+                  result=results[0]; ts=result.get('timestamp') or []
+                  q=((result.get('indicators') or {}).get('quote') or [{}])[0]
+                  adj=(((result.get('indicators') or {}).get('adjclose') or [{}])[0].get('adjclose') or [])
+                  def at(xs,i): return xs[i] if i<len(xs) else None
+                  rows=[]
+                  for i,t in enumerate(ts):
+                      rows.append({'date':dt.datetime.fromtimestamp(t,tz=dt.timezone.utc).date().isoformat(),'open':at(q.get('open') or [],i),'high':at(q.get('high') or [],i),'low':at(q.get('low') or [],i),'close':at(q.get('close') or [],i),'adjclose':at(adj,i),'volume':at(q.get('volume') or [],i)})
+                  return code,{'status':'OK','symbol':symbol,'rows':rows,'url':url}
+              except Exception as exc:
+                  return code,{'status':'ERROR','symbol':symbol,'error':f'{type(exc).__name__}: {exc}','url':url}
+          out={}
+          with concurrent.futures.ThreadPoolExecutor(max_workers=6) as ex:
+              for code,value in ex.map(fetch,codes): out[code]=value
+          with open('missing_prices.json','w',encoding='utf-8') as f: json.dump(out,f,ensure_ascii=False)
+          print({c:(v.get('status'),len(v.get('rows') or []),(v.get('rows') or [{}])[-1].get('date')) for c,v in out.items()})
+          PY
+      - name: Upload prices
+        uses: actions/upload-artifact@v4
+        with:
+          name: missing-prices-2026
+          path: missing_prices.json
+          retention-days: 1
