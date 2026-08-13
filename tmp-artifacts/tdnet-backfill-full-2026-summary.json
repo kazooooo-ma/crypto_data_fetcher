@@ -1,0 +1,15 @@
+{
+  "period": [
+    "2025-12-30",
+    "2026-07-06"
+  ],
+  "manifest_days": 121,
+  "document_candidates": 8683,
+  "matched_documents": 1053,
+  "matched_days": 86,
+  "price_codes": 603,
+  "price_ok": 580,
+  "download_errors": 0,
+  "extract_errors": 0,
+  "created_at": "2026-08-13T03:46:40.143915+00:00"
+}
