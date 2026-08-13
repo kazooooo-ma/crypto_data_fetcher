@@ -1,4 +1,4 @@
-name: Debug Yanoshin JSON One-Off
+name: Order Backlog Daily Live Scan One-Off
 
 on:
   push:
@@ -9,36 +9,19 @@ permissions:
   contents: read
 
 jobs:
-  debug:
+  scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install requests
-      - name: Dump sample JSON structure
-        run: |
-          python - <<'PY'
-          import json, requests
-          u='https://webapi.yanoshin.jp/webapi/tdnet/list/20260707.json?limit=1000'
-          r=requests.get(u,timeout=60)
-          r.raise_for_status()
-          obj=r.json()
-          print(type(obj), getattr(obj,'keys',lambda:[])())
-          items=obj.get('items') if isinstance(obj,dict) else None
-          print('items type',type(items),'len',len(items) if hasattr(items,'__len__') else None)
-          sample=None
-          if isinstance(items,list) and items: sample=items[0]
-          elif isinstance(items,dict):
-              print('items keys',items.keys())
-              for v in items.values():
-                  if isinstance(v,list) and v:
-                      sample=v[0];break
-          print('sample',json.dumps(sample,ensure_ascii=False)[:2000])
-          open('sample.json','w',encoding='utf-8').write(json.dumps(obj,ensure_ascii=False,indent=2))
-          PY
+      - run: python -m pip install requests pymupdf
+      - run: python scripts/order_backlog_daily_live_scan_once.py
       - uses: actions/upload-artifact@v4
         with:
-          name: yanoshin-json-debug
-          path: sample.json
+          name: order-backlog-daily-20260813
+          path: out/order_backlog_20260813/
+          if-no-files-found: error
           retention-days: 1
