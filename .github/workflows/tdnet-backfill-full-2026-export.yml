@@ -1,0 +1,45 @@
+name: TDnet Full Backfill 2026 Export One-Off
+
+on:
+  push:
+    paths:
+      - scripts/tdnet_backfill_full_export_trigger.txt
+      - .github/workflows/tdnet-backfill-full-2026-export.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-and-export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PDF text tools
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils zip
+      - name: Install Python dependency
+        run: python -m pip install --upgrade requests
+      - name: Fetch TDnet documents and prices
+        run: python scripts/tdnet_backfill_full_2026_once.py
+      - name: Create export archive
+        run: |
+          rm -rf tmp-artifacts
+          mkdir -p tmp-artifacts
+          cd out_full
+          zip -qr ../tmp-artifacts/tdnet-backfill-full-2026-source.zip .
+          cd ..
+          cp out_full/summary.json tmp-artifacts/tdnet-backfill-full-2026-summary.json
+      - name: Commit temporary export
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -f tmp-artifacts/tdnet-backfill-full-2026-source.zip tmp-artifacts/tdnet-backfill-full-2026-summary.json
+          git commit -m 'Temporary full TDnet backfill source export' || true
+          git push origin HEAD:master
