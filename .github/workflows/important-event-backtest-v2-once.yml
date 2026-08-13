@@ -1,0 +1,46 @@
+name: Important Event Point-in-Time Backtest V2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/important-event-backtest-v2-once.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests
+      - name: Download financing lifecycle artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: important-event-financing-p2-p3-archive
+          path: inputs/financing
+          repository: kazooooo-ma/crypto_data_fetcher
+          run-id: 31693251013
+          github-token: ${{ github.token }}
+      - name: Download buyback extraction parts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: buyback-v3-part-*
+          path: inputs/buyback
+          merge-multiple: false
+          repository: kazooooo-ma/crypto_data_fetcher
+          run-id: 31688337183
+          github-token: ${{ github.token }}
+      - name: Run point-in-time backtest v2
+        run: python scripts/important_event_backtest_v2_once.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: important-event-backtest-v2
+          path: out/backtest_v2/
+          if-no-files-found: error
+          retention-days: 1
