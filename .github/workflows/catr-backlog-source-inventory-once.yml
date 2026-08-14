@@ -1,0 +1,28 @@
+name: CATR Backlog Source Inventory One-Off
+
+on:
+  push:
+    paths:
+      - '.github/workflows/catr-backlog-source-inventory-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests beautifulsoup4
+      - name: Discover historical sources
+        run: python scripts/catr_backlog_source_inventory.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: catr-backlog-source-inventory
+          path: out/catr-backlog-source-inventory/
+          if-no-files-found: error
+          retention-days: 1
