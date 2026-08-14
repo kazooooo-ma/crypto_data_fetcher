@@ -1,0 +1,24 @@
+name: Backlog Daily More 2026-08-14 One-Off
+on:
+  push:
+    paths:
+      - '.github/workflows/backlog-daily-more-20260814-once.yml'
+permissions:
+  contents: read
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests pymupdf
+      - run: python scripts/backlog_daily_more_candidates_20260814.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backlog-daily-more-20260814
+          path: out/more-20260814/
+          if-no-files-found: error
+          retention-days: 2
