@@ -1,0 +1,27 @@
+{
+  "records": 1161,
+  "companies": 53,
+  "companies_with_8_selected_quarters": 0,
+  "companies_with_12_selected_quarters": 0,
+  "parse_status_counts": {
+    "PDF_INVALID": 1118,
+    "NO_BACKLOG_CANDIDATE": 11,
+    "PARSED": 32
+  },
+  "selection_status_counts": {
+    "null": 1118,
+    "NO_CANDIDATE": 11,
+    "SELECTED_BY_STRUCTURE": 22,
+    "AMBIGUOUS_TOP_CANDIDATES": 10
+  },
+  "reconciliation": {
+    "fixtures": 28,
+    "matched_details": 23,
+    "parsed_details": 9,
+    "expected_value_in_candidates_0_5pct": 0,
+    "automatic_selection_0_5pct": 0,
+    "automatic_selection_2pct": 0,
+    "ambiguous": 4,
+    "collection_ready": false
+  }
+}

@@ -1,0 +1,29 @@
+﻿code,company,ir_date,expected_current_backlog_m,matched_release_date,pdf_status,selection_status,selected_current_backlog_m,selected_relative_error,expected_exists_in_candidates,best_candidate_relative_error,candidate_count,selected_method,selected_scope,evidence
+6888,アクモス,2026-04-30,,2026-04-30,PDF_INVALID,,,,False,,,,,
+1724,シンクレイヤ,2026-05-14,,,NO_MATCHED_DETAIL,,,,False,,0,,,
+6266,タツモ,2026-08-10,,2026-08-10,PARSED,SELECTED_BY_STRUCTURE,0.012,,False,,9,SEPARATED_TEXT_PAIR,UNKNOWN,置」に含めて区 分する方法に変更しておりますので、前中間連結会計期間の受注高についても、変更後の区分方法により作 成したものを記載しております。 2.上記の金額には消費税等は含まれておりません。 2.受注残高 (注)1.2026年12月期第一四半期連結会計期間より、プロセス機器事業の「コーター」は「半導体装置」に含めて区 分する方法に変更しておりますので、前中間連結会計期間の受注残高についても、変更後の区分方法により 作成したものを記載しております。 2.上記の金額には消費税等は含まれておりません。 - 13 - タツモ(株) (6266) 2026年12月期 第2四半期(中間期)決算短信
+1968,太平電業,2026-08-06,,2026-08-06,PARSED,SELECTED_BY_STRUCTURE,55.3,,False,,32,ROW_PERIOD_PAIR,METRIC_ROW,"受 注 残 高 | 建設工事部門 | 71,515 | 55.3 | 108,544 | 60.0 | 37,029"
+3741,セック,2026-08-10,,2026-08-10,PARSED,SELECTED_BY_STRUCTURE,8010.5,,False,,21,TOTAL_BACKLOG_COLUMNS,TOTAL,"計 | 1,718,210 | 66.4 | 8,010,500 | 122.3"
+6363,酉島製作所,2026-08-05,,2026-08-05,PARSED,SELECTED_BY_STRUCTURE,29.1,,False,,18,ROW_PERIOD_PAIR,METRIC_ROW,"受注 残高 | 官 公 需 | 30,881 | 29.1 | 30,584 | 25.3 | -297 | -1.0"
+8056,BIPROGY,2026-08-05,,2026-08-05,NO_BACKLOG_CANDIDATE,NO_CANDIDATE,,,False,,0,,,
+6744,能美防災,2026-08-06,,2026-08-06,NO_BACKLOG_CANDIDATE,NO_CANDIDATE,,,False,,0,,,
+6845,アズビル,2026-08-06,,2026-08-06,NO_BACKLOG_CANDIDATE,NO_CANDIDATE,,,False,,0,,,
+6652,IDEC,2026-08-06,,,NO_MATCHED_DETAIL,,,,False,,0,,,
+6134,FUJI,2026-08-03,,2026-08-03,PARSED,SELECTED_BY_STRUCTURE,90320.0,,False,,63,TOTAL_BACKLOG_COLUMNS,TOTAL,"合計 | 85,784 10 | 0.0 | 60,597 | 100.0 | 90,320 | 100.0"
+6946,日本アビオニクス,2026-07-30,,2026-07-30,PARSED,AMBIGUOUS_TOP_CANDIDATES,,,False,,77,,,
+7224,新明和工業,2026-07-31,,2026-07-31,PARSED,AMBIGUOUS_TOP_CANDIDATES,,,False,,76,,,
+6366,千代田化工建設,2026-08-03,,,NO_MATCHED_DETAIL,,,,False,,0,,,
+6653,正興電機製作所,2026-07-24,,2026-07-24,NO_BACKLOG_CANDIDATE,NO_CANDIDATE,,,False,,0,,,
+1723,日本電技,2026-07-24,,2026-07-24,NO_BACKLOG_CANDIDATE,NO_CANDIDATE,,,False,,0,,,
+7949,小松ウオール工業,2026-07-27,,2026-07-27,PARSED,AMBIGUOUS_TOP_CANDIDATES,,,False,,45,,,
+6858,小野測器,2026-07-24,,2026-07-24,PARSED,AMBIGUOUS_TOP_CANDIDATES,,,False,,54,,,
+1964,中外炉工業,2026-07-24,,,NO_MATCHED_DETAIL,,,,False,,0,,,
+402A,アクセルスペースHD,2026-07-14,,2026-07-14,PDF_INVALID,,,,False,,,,,
+1434,JESCOホールディングス,2026-07-14,,2026-07-14,PDF_INVALID,,,,False,,,,,
+6505,東洋電機製造,2026-07-15,,2026-07-15,PDF_INVALID,,,,False,,,,,
+6496,中北製作所,2026-07-14,,2026-07-14,PDF_INVALID,,,,False,,,,,
+2153,E・Jホールディングス,2026-07-14,,,NO_MATCHED_DETAIL,,,,False,,0,,,
+6255,エヌ・ピー・シー,2026-07-10,,2026-07-10,PDF_INVALID,,,,False,,,,,
+9716,乃村工藝社,2026-07-09,,2026-07-09,PDF_INVALID,,,,False,,,,,
+6668,アドテック プラズマ テクノロジー,2026-07-10,,2026-07-10,PDF_INVALID,,,,False,,,,,
+9765,オオバ,2026-07-09,,2026-07-09,PDF_INVALID,,,,False,,,,,
