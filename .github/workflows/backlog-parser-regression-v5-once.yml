@@ -26,3 +26,4 @@ jobs:
           path: out/backlog-parser-regression-v5/
           if-no-files-found: error
           retention-days: 1
+# rerun semantic fixes 2026-08-15
