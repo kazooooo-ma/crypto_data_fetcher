@@ -1,4 +1,4 @@
-name: Backlog Structured Parser V3 Regression One-Off
+name: Backlog Parser V3 Regression One-Off
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install requests pymupdf beautifulsoup4
       - name: Run parser v3 regression
-        run: python scripts/backlog_parser_regression_v3.py
+        run: python scripts/backlog_parser_regression.py
       - uses: actions/upload-artifact@v4
         with:
           name: backlog-parser-regression-v3
