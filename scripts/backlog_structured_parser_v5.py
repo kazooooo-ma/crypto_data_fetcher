@@ -20,6 +20,14 @@ DIRECT_AMOUNT_RE = re.compile(
 PERCENT_RE = re.compile(r"[-+]?\d+(?:\.\d+)?\s*%|前年同期比|増減")
 CURRENT_BLOCK_RE = re.compile(r"当第\s*[1-4]\s*四半期")
 PRIOR_BLOCK_RE = re.compile(r"前第\s*[1-4]\s*四半期")
+SEGMENT_PAGE_RE = re.compile(
+    r"セグメント別|事業別|ロボットソリューション事業|"
+    r"マシンツール事業|電子機器事業|情報システム事業"
+)
+SEGMENT_ROW_RE = re.compile(
+    r"受\s*注\s*残(?:高)?\s*[|｜:]\s*"
+    r"(?:プロジェクト|ポンプ|サービス|国内|海外|[^|｜]{1,24}事業)"
+)
 
 
 def _make(
@@ -34,6 +42,8 @@ def _make(
     order: float | None = None,
     sales: float | None = None,
     period_text: str = "",
+    scope: str = "TOTAL",
+    confidence: str = "A",
 ) -> Candidate:
     return Candidate(
         current_backlog_m=current,
@@ -41,14 +51,14 @@ def _make(
         order_intake_m=order,
         sales_m=sales,
         method=method,
-        confidence="A",
+        confidence=confidence,
         score=0,
         page=page,
         evidence=evidence,
         period_text=period_text,
         unit=unit,
         yoy=yoy,
-        scope="TOTAL",
+        scope=scope,
     )
 
 
@@ -84,6 +94,7 @@ def _values(row: list[str], multiplier: float | None) -> list[float]:
 
 def _current_change_rows(page_number: int, page: fitz.Page, page_text: str) -> list[Candidate]:
     outputs: list[Candidate] = []
+    page_context = norm(page_text)
     for rows, strategy, _bbox in legacy.table_rows(page):
         table_text = "\n".join(" | ".join(row) for row in rows)
         multiplier, unit = _unit(table_text + "\n" + page_text)
@@ -94,12 +105,21 @@ def _current_change_rows(page_number: int, page: fitz.Page, page_text: str) -> l
             if not re.match(r"(?:受注残高?|次期繰越受注残高|期末受注残高)", first_nonempty):
                 continue
             values = _values(row, multiplier)
-            if len(values) < 2 or not PERCENT_RE.search(row_text):
+            # Valid layout is prior, current, optional absolute change. Rows
+            # containing several segment/forecast values are not this layout.
+            if len(values) < 2 or len(values) > 3 or not PERCENT_RE.search(row_text):
                 continue
             prior = values[0]
             current = values[1]
             if prior <= 0 or current <= 0:
                 continue
+            segment = bool(
+                SEGMENT_ROW_RE.search(row_text)
+                or (
+                    SEGMENT_PAGE_RE.search(page_context)
+                    and not re.search(r"連結|全社|合計", row_text)
+                )
+            )
             yoy = current / prior - 1
             outputs.append(
                 _make(
@@ -111,6 +131,8 @@ def _current_change_rows(page_number: int, page: fitz.Page, page_text: str) -> l
                     unit=unit,
                     yoy=yoy,
                     period_text="CURRENT_PERIOD_CHANGE_ROW",
+                    scope="SINGLE_SEGMENT" if segment else "TOTAL",
+                    confidence="B" if segment else "A",
                 )
             )
     return outputs
@@ -220,7 +242,9 @@ def selector_score(candidate: Candidate, candidates: list[Candidate]) -> float:
     method_bonus = {
         "CURRENT_CHANGE_BACKLOG_ROW": 1800,
         "TOTAL_ORDER_BACKLOG_YOY_ROW": 1750,
-        "CURRENT_PERIOD_FLOW_TOTAL": 1900,
+        # Flow parsing is retained as a diagnostic candidate, but it cannot
+        # outrank a directly identified backlog total unless it reconciles.
+        "CURRENT_PERIOD_FLOW_TOTAL": 150,
         "TOTAL_TABLE": 750,
         "METRIC_ROW_TABLE": 0,
         "CHART_TREND": -250,
@@ -230,9 +254,23 @@ def selector_score(candidate: Candidate, candidates: list[Candidate]) -> float:
     if candidate.method == "NARRATIVE_BACKLOG" and not DIRECT_AMOUNT_RE.search(text):
         score -= 1500
     if candidate.method == "METRIC_ROW_TABLE" and PERCENT_RE.search(text):
-        # The legacy metric-row route often chooses the change amount. The
-        # dedicated current-change candidate above supersedes it.
         score -= 700
+    if candidate.method == "CURRENT_CHANGE_BACKLOG_ROW" and candidate.scope == "SINGLE_SEGMENT":
+        score -= 2600
+    if candidate.method == "CURRENT_PERIOD_FLOW_TOTAL":
+        metrics = [
+            abs(float(value))
+            for value in (candidate.order_intake_m, candidate.sales_m)
+            if value not in (None, 0)
+        ]
+        if candidate.prior_backlog_m is None:
+            score -= 1200
+        if "構成比" in text:
+            score -= 1800
+        if metrics and candidate.current_backlog_m < max(metrics) * 0.20:
+            score -= 2400
+        if candidate.current_backlog_m <= 100.0 and any(value > 1000 for value in metrics):
+            score -= 2500
     if candidate.method == "TOTAL_TABLE":
         if CURRENT_BLOCK_RE.search(candidate.period_text):
             score += 900
