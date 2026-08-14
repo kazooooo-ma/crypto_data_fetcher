@@ -1,0 +1,56 @@
+name: Debug CATR Search One-Off
+
+on:
+  push:
+    paths:
+      - '.github/workflows/debug-catr-search-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests beautifulsoup4
+      - name: Probe search forms and parameters
+        run: |
+          python - <<'PY'
+          import json
+          import requests
+          from bs4 import BeautifulSoup
+
+          s=requests.Session();s.headers['User-Agent']='Mozilla/5.0'
+          base='https://disclosure.catr.jp/search'
+          out=[]
+          r=s.get(base,timeout=30)
+          soup=BeautifulSoup(r.text,'html.parser')
+          out.append({'kind':'form','status':r.status_code,'url':r.url,'forms':[
+              {'action':f.get('action'),'method':f.get('method'),'inputs':[(i.get('name'),i.get('value'),i.get('type')) for i in f.find_all('input')]}
+              for f in soup.find_all('form')
+          ]})
+          for key in ['q','query','keyword','search','code','word']:
+              try:
+                  rr=s.get(base,params={key:'1434'},timeout=30)
+                  ss=BeautifulSoup(rr.text,'html.parser')
+                  links=[a.get('href') for a in ss.find_all('a',href=True) if '/companies/' in a.get('href','')]
+                  out.append({'kind':'get','key':key,'status':rr.status_code,'url':rr.url,'title':ss.title.string if ss.title else None,'links':links[:10],'text':ss.get_text(' ',strip=True)[:500]})
+              except Exception as e: out.append({'kind':'get','key':key,'error':repr(e)})
+          for key in ['q','query','keyword','search','code','word']:
+              try:
+                  rr=s.post(base,data={key:'1434'},timeout=30)
+                  ss=BeautifulSoup(rr.text,'html.parser')
+                  links=[a.get('href') for a in ss.find_all('a',href=True) if '/companies/' in a.get('href','')]
+                  out.append({'kind':'post','key':key,'status':rr.status_code,'url':rr.url,'title':ss.title.string if ss.title else None,'links':links[:10],'text':ss.get_text(' ',strip=True)[:500]})
+              except Exception as e: out.append({'kind':'post','key':key,'error':repr(e)})
+          open('catr_search_probe.json','w',encoding='utf-8').write(json.dumps(out,ensure_ascii=False,indent=2))
+          print(json.dumps(out,ensure_ascii=False,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: catr-search-probe
+          path: catr_search_probe.json
+          retention-days: 1
