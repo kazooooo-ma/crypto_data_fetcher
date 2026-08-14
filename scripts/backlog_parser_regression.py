@@ -116,7 +116,7 @@ def catr_pdf_candidates(code: str, target_date: str) -> list[str]:
     return [url for _distance, url in sorted(dated, key=lambda item: item[0])]
 
 
-def candidate_urls(fixture: dict) -> list[str]:
+def direct_candidate_urls(fixture: dict) -> list[str]:
     url = fixture["source_url"]
     urls = [url]
     fid = tdnet_id(url)
@@ -127,18 +127,27 @@ def candidate_urls(fixture: dict) -> list[str]:
                 f"https://tdnet-pdf.kabutan.jp/{fid[:8]}/{fid}.pdf",
             ]
         )
-    try:
-        urls.extend(catr_pdf_candidates(str(fixture["code"]), fixture["ir_date"]))
-    except Exception:
-        pass
     return list(dict.fromkeys(url for url in urls if url))
 
 
 def fetch_pdf(fixture: dict) -> tuple[bytes | None, str | None, list[dict]]:
-    queue = candidate_urls(fixture)
+    queue = direct_candidate_urls(fixture)
+    catr_added = False
     audit: list[dict] = []
     seen: set[str] = set()
-    while queue:
+    while queue or not catr_added:
+        if not queue:
+            catr_added = True
+            try:
+                queue.extend(
+                    catr_pdf_candidates(str(fixture["code"]), fixture["ir_date"])
+                )
+            except Exception as exc:
+                audit.append(
+                    {"source": "CATR", "error": f"{type(exc).__name__}: {exc}"}
+                )
+            if not queue:
+                break
         current = queue.pop(0)
         if not current or current in seen:
             continue
