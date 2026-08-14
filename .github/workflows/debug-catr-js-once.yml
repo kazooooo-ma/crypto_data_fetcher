@@ -1,0 +1,63 @@
+name: Debug CATR Client API One-Off
+
+on:
+  push:
+    paths:
+      - '.github/workflows/debug-catr-js-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests beautifulsoup4
+      - name: Inspect page and script bundles
+        run: |
+          python - <<'PY'
+          import json, re, requests
+          from bs4 import BeautifulSoup
+          from urllib.parse import urljoin
+
+          s=requests.Session(); s.headers['User-Agent']='Mozilla/5.0'
+          url='https://disclosure.catr.jp/search?word=1434'
+          r=s.get(url,timeout=45); r.raise_for_status()
+          soup=BeautifulSoup(r.text,'html.parser')
+          result={'page_url':r.url,'status':r.status_code,'scripts':[],'inline':[],'html_snippets':[]}
+          for tag in soup.find_all('script'):
+              src=tag.get('src')
+              if src:
+                  u=urljoin(r.url,src)
+                  try:
+                      rr=s.get(u,timeout=45); text=rr.text
+                      patterns=[]
+                      for pat in [r'fetch\([^)]{0,300}',r'axios[^;]{0,300}',r'/api/[^"\' ]+',r'search[^"\']{0,200}',r'XMLHttpRequest[^;]{0,300}']:
+                          patterns += [m.group(0) for m in re.finditer(pat,text,re.I)][:20]
+                      result['scripts'].append({'url':u,'status':rr.status_code,'bytes':len(rr.content),'matches':patterns[:100]})
+                  except Exception as e:
+                      result['scripts'].append({'url':u,'error':repr(e)})
+              else:
+                  text=tag.get_text()
+                  if text.strip():
+                      result['inline'].append(text[:5000])
+          for pattern in ['api','search','word','fetch','axios','companies']:
+              for m in re.finditer(pattern,r.text,re.I):
+                  result['html_snippets'].append(r.text[max(0,m.start()-250):m.end()+500])
+                  if len(result['html_snippets'])>=50: break
+              if len(result['html_snippets'])>=50: break
+          open('catr_client_api_probe.json','w',encoding='utf-8').write(json.dumps(result,ensure_ascii=False,indent=2))
+          open('catr_search_page.html','w',encoding='utf-8').write(r.text)
+          print(json.dumps(result,ensure_ascii=False,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: catr-client-api-probe
+          path: |
+            catr_client_api_probe.json
+            catr_search_page.html
+          retention-days: 1
