@@ -1,0 +1,28 @@
+name: Backlog Table Regression Probe One-Off
+
+on:
+  push:
+    paths:
+      - '.github/workflows/backlog-table-probe-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests pymupdf beautifulsoup4
+      - name: Probe gold fixtures
+        run: python scripts/backlog_table_probe.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backlog-table-probe
+          path: out/backlog-table-probe/
+          if-no-files-found: error
+          retention-days: 1
