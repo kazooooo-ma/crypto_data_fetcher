@@ -1,0 +1,28 @@
+name: Backlog Structured Parser V4 Regression One-Off
+
+on:
+  push:
+    paths:
+      - '.github/workflows/backlog-parser-regression-v4-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests pymupdf beautifulsoup4
+      - name: Run parser v4 regression
+        run: python scripts/backlog_parser_regression_v4.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backlog-parser-regression-v4
+          path: out/backlog-parser-regression-v4/
+          if-no-files-found: error
+          retention-days: 1
