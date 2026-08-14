@@ -1,0 +1,36 @@
+name: Backlog History Collection V22 One-Off
+
+on:
+  push:
+    paths:
+      - '.github/workflows/backlog-history-collect-v22-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    name: collect-${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install requests pymupdf beautifulsoup4
+      - name: Collect and parse quarterly histories
+        run: >-
+          python scripts/backlog_history_collect_v22.py
+          --shard-index ${{ matrix.shard }} --shard-count 6
+          --workers 5 --out out/shard-${{ matrix.shard }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backlog-history-v22-shard-${{ matrix.shard }}
+          path: out/shard-${{ matrix.shard }}/
+          if-no-files-found: error
+          retention-days: 1
