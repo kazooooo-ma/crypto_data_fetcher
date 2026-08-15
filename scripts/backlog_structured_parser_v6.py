@@ -23,6 +23,17 @@ EXPLICIT_BACKLOG_AMOUNT = re.compile(
     r"\d[\d,]*(?:\.\d+)?\s*(?:兆円|億円|百万円|千円|万円)",
     re.I,
 )
+TOTAL_ROW = re.compile(r"^(?:[^:]{0,40}:\s*)?合\s*計(?:\s*\||\s)", re.I)
+SEGMENT_NARRATIVE = re.compile(
+    r"情報システム|電子機器|接合機器|赤外線機器|"
+    r"セグメント別|事業別|部門別|品目別|事業につきまして",
+    re.I,
+)
+EXPLICIT_GROUP_BACKLOG = re.compile(
+    r"(?:当社グループ|連結|全社)[^。\n]{0,80}?受\s*注\s*残|"
+    r"受\s*注\s*残(?:高)?\s*(?:合計|総額)",
+    re.I,
+)
 NUMBER = re.compile(r"[-+]?\d[\d,]*(?:\.\d+)?")
 
 
@@ -49,7 +60,9 @@ def _numeric_count(candidate: Candidate) -> int:
 def _score(candidate: Candidate, candidates: list[Candidate]) -> float:
     score = v5.selector_score(candidate, candidates)
     text = norm(candidate.evidence + " " + candidate.period_text)
+    evidence = norm(candidate.evidence)
     method = candidate.method
+    number_count = _numeric_count(candidate)
 
     # This generic route repeatedly picked order, sales or composition ratios
     # instead of the backlog column. Keep it for diagnostics, never for auto
@@ -61,8 +74,7 @@ def _score(candidate: Candidate, candidates: list[Candidate]) -> float:
     # backlog | prior | current | change | yoy. Matrix rows and forecast tables
     # are routed to another direct/narrative candidate or manual review.
     if method == "CURRENT_CHANGE_BACKLOG_ROW":
-        count = _numeric_count(candidate)
-        if count <= 5:
+        if number_count <= 5:
             score += 500
         else:
             score -= 1400
@@ -79,11 +91,43 @@ def _score(candidate: Candidate, candidates: list[Candidate]) -> float:
     }:
         score += 950
 
+    # Short current/prior total rows are authoritative. Long total rows are
+    # usually multi-quarter time-series that the generic parser has mapped to
+    # the wrong pair of columns (IDEC regression).
+    if method == "TOTAL_TWO_PERIOD_ORDER_BACKLOG":
+        if "受注高" in evidence and not legacy.BACKLOG_RE.search(evidence):
+            score -= 1600
+        elif TOTAL_ROW.search(evidence) and 4 <= number_count <= 8:
+            score += 1800
+        elif number_count > 8:
+            score -= 1700
+        else:
+            score -= 300
+    elif method == "TOTAL_THREE_PERIOD_ORDER_BACKLOG":
+        if TOTAL_ROW.search(evidence) and 4 <= number_count <= 8:
+            score += 1800
+        elif number_count > 8:
+            score -= 1800
+        else:
+            score -= 400
+    elif method == "TOTAL_TWO_PERIOD_ORDER_SALES_BACKLOG":
+        if TOTAL_ROW.search(evidence) and 5 <= number_count <= 9:
+            score += 1500
+        elif number_count > 9:
+            score -= 1500
+        else:
+            score -= 300
+
     if method in {"DIRECT_BACKLOG_SENTENCE", "NARRATIVE_FINAL_BALANCE"}:
         if EXPLICIT_BACKLOG_AMOUNT.search(text):
             score += 850
         if "__CONSOLIDATED_PAGE__" in text:
             score += 160
+        # A segment narrative may be accurate for that segment but is not the
+        # company-wide backlog. Prefer a short total table when one exists
+        # (Japan Avionics regression).
+        if SEGMENT_NARRATIVE.search(evidence) and not EXPLICIT_GROUP_BACKLOG.search(evidence):
+            score -= 1400
 
     # Company-wide historical series is a valid fallback when segment pages are
     # separately disclosed, as in FUJI. Segment and forecast series are not.
@@ -95,12 +139,7 @@ def _score(candidate: Candidate, candidates: list[Candidate]) -> float:
         if "__FORECAST_PAGE__" in text:
             score -= 500
 
-    if method in {
-        "TOTAL_TWO_PERIOD_ORDER_BACKLOG",
-        "TOTAL_TWO_PERIOD_ORDER_SALES_BACKLOG",
-        "CHART_TREND",
-        "SEGMENT_SUM_TABLE",
-    }:
+    if method in {"CHART_TREND", "SEGMENT_SUM_TABLE"}:
         score -= 900
 
     if candidate.scope == "TOTAL":
