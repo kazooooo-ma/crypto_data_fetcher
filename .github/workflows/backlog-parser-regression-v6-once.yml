@@ -27,4 +27,4 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-# rerun 2026-08-15: verify selector before history backfill
+# rerun 2026-08-15: short-total and segment-narrative selector fix
