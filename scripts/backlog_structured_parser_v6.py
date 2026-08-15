@@ -34,6 +34,11 @@ EXPLICIT_GROUP_BACKLOG = re.compile(
     r"受\s*注\s*残(?:高)?\s*(?:合計|総額)",
     re.I,
 )
+TOTAL_RESULT_SENTENCE = re.compile(
+    r"(?:これにより|この結果)[^。\n]{0,80}?受\s*注\s*残(?:高)?は",
+    re.I,
+)
+NON_BACKLOG_ROW_LABEL = re.compile(r"受\s*注\s*高|売\s*上\s*高|売上収益|営業利益", re.I)
 NUMBER = re.compile(r"[-+]?\d[\d,]*(?:\.\d+)?")
 
 
@@ -95,8 +100,8 @@ def _score(candidate: Candidate, candidates: list[Candidate]) -> float:
     # usually multi-quarter time-series that the generic parser has mapped to
     # the wrong pair of columns (IDEC regression).
     if method == "TOTAL_TWO_PERIOD_ORDER_BACKLOG":
-        if "受注高" in evidence and not legacy.BACKLOG_RE.search(evidence):
-            score -= 1600
+        if NON_BACKLOG_ROW_LABEL.search(evidence) and not legacy.BACKLOG_RE.search(evidence):
+            score -= 1900
         elif TOTAL_ROW.search(evidence) and 4 <= number_count <= 8:
             score += 1800
         elif number_count > 8:
@@ -111,7 +116,9 @@ def _score(candidate: Candidate, candidates: list[Candidate]) -> float:
         else:
             score -= 400
     elif method == "TOTAL_TWO_PERIOD_ORDER_SALES_BACKLOG":
-        if TOTAL_ROW.search(evidence) and 5 <= number_count <= 9:
+        if NON_BACKLOG_ROW_LABEL.search(evidence) and not legacy.BACKLOG_RE.search(evidence):
+            score -= 1900
+        elif TOTAL_ROW.search(evidence) and 5 <= number_count <= 9:
             score += 1500
         elif number_count > 9:
             score -= 1500
@@ -123,10 +130,12 @@ def _score(candidate: Candidate, candidates: list[Candidate]) -> float:
             score += 850
         if "__CONSOLIDATED_PAGE__" in text:
             score += 160
+        if TOTAL_RESULT_SENTENCE.search(evidence):
+            score += 900
         # A segment narrative may be accurate for that segment but is not the
         # company-wide backlog. Prefer a short total table when one exists
         # (Japan Avionics regression).
-        if SEGMENT_NARRATIVE.search(evidence) and not EXPLICIT_GROUP_BACKLOG.search(evidence):
+        elif SEGMENT_NARRATIVE.search(evidence) and not EXPLICIT_GROUP_BACKLOG.search(evidence):
             score -= 1400
 
     # Company-wide historical series is a valid fallback when segment pages are
