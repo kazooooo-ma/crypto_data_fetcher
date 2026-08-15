@@ -60,3 +60,5 @@ jobs:
           path: out/aggregate/
           if-no-files-found: error
           retention-days: 1
+
+# rerun 2026-08-15: parser 21/21 and CATR browser-header fetch
