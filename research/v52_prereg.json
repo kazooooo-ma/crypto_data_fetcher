@@ -1,0 +1,83 @@
+{
+  "version": "v5.2-broad-jpx-holdout",
+  "locked_at_jst": "2026-08-22T00:00:00+09:00",
+  "purpose": "Broad-market point-in-time test of a systematic proxy for the user's Japanese equity fundamental strategy",
+  "holdout": {
+    "start": "2020-08-03",
+    "end": "2021-07-30",
+    "reason": "Unused one-year window relative to prior v1-v4 tests; rules fixed before downloading security-level holdout files in this run"
+  },
+  "data": {
+    "equities": "JPX Tokyo Stock Exchange Prediction dataset mirror (stock_prices.csv, financials.csv, stock_list.csv)",
+    "benchmark": "1306.T adjusted-close total-return proxy from Yahoo chart API; TOPIX price-index proxy from cross-sectional eligible-universe value-weighted return also shown",
+    "limitations": [
+      "The public mirror is exchange-origin competition data but is not an official JPX download endpoint",
+      "The competition universe may contain survivor-selection relative to the 2021 universe definition",
+      "Buyback, mid-term-plan narrative and full cash-flow disclosures are unavailable in the tabular financial dataset; the test is a systematic proxy, not a literal replay of every qualitative prompt item"
+    ]
+  },
+  "universe": {
+    "base": "All securities present in the JPX competition price file and identified as domestic common equities in the stock-list file where available",
+    "dynamic_eligibility_each_month": [
+      "At least 120 prior valid trading-day closes",
+      "At least 15 valid trading days in the prior 20 trading days",
+      "Prior-20-day average traded value >= JPY 300 million",
+      "Latest financial disclosure available by the monthly cutoff",
+      "Positive latest operating profit and net income",
+      "Not under supervision flag on cutoff"
+    ]
+  },
+  "rebalance": {
+    "signal_cutoff": "Last trading day of each month at close",
+    "execution": "Next trading-day open",
+    "frequency": "Monthly",
+    "holding_period": "126 trading days, approximately six months",
+    "cost_one_way": 0.002,
+    "max_names": 12,
+    "max_names_per_33_sector": 3,
+    "weighting": "Equal weight among active selected names; unused capacity remains cash"
+  },
+  "fundamental_score": {
+    "forecast_operating_profit_or_eps_revision_ge_5pct": 3,
+    "comparable_period_operating_profit_yoy_ge_15pct": 2,
+    "operating_margin_improvement_ge_1ppt": 1,
+    "annual_dividend_forecast_revision_ge_10pct": 1,
+    "roe_proxy_ge_8pct": 1,
+    "forecast_operating_profit_or_eps_revision_le_minus_5pct": -4,
+    "comparable_period_operating_profit_yoy_le_minus_20pct": -2,
+    "pass": "Score >= 4, positive operating profit and profit, and no -4 event"
+  },
+  "price_confirmation": {
+    "lookback": "42 trading days ending at signal cutoff",
+    "absolute_return": "> 0",
+    "excess_return": "> 0 versus 1306.T total-return proxy over the same trading dates",
+    "ranking": [
+      "Fundamental score descending",
+      "42-day excess return descending",
+      "Prior-20-day average traded value descending",
+      "Securities code ascending"
+    ]
+  },
+  "portfolio": {
+    "entry": "Selected at cutoff and bought next trading-day open",
+    "duplicate_signal": "Do not open a second lot while already held",
+    "exit": "First trading-day open on or after 126 trading days from entry, or earlier on a monthly -4 forecast-cut signal",
+    "dividends": "Use ExpectedDividend cash field only when non-null on a held security date; report price-only sensitivity separately",
+    "corporate_actions": "Use cumulative AdjustmentFactor to create continuous adjusted prices"
+  },
+  "metrics": [
+    "Net cumulative return",
+    "1306.T total-return proxy return",
+    "Excess return",
+    "Maximum drawdown",
+    "Annualized volatility",
+    "Sharpe ratio with zero risk-free rate",
+    "Information ratio",
+    "Monthly excess win rate",
+    "Trade count and hit rate",
+    "Average invested ratio",
+    "Turnover",
+    "Sector and security contribution"
+  ],
+  "optimization_prohibition": "No threshold, holding period, position count, weight, date, or inclusion rule may be changed after results are computed. No sensitivity result may replace the registered primary result."
+}
